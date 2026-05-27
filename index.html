@@ -3146,39 +3146,47 @@ document.querySelectorAll('input[inputmode="numeric"]').forEach(function(input) 
       + '</div>'
       + '</div></body></html>';
 
+    var needsHeating = state.interest === 'wp' || state.interest === 'all';
+    var loadLabels = state.futureLoads.map(function(l) {
+      var map = {wp:'Wärmepumpe',ev:'E-Auto',ebike:'E-Bike',ac:'Klimaanlage',pool:'Pool',sauna:'Sauna'};
+      return map[l] || l;
+    }).join(', ') || 'Keine';
+    var hausLabels = {efh:'Einfamilienhaus',dhh:'Doppelhaushälfte',reihenhaus:'Reihenhaus',mfh:'Mehrfamilienhaus',gewerbe:'Gewerbe'};
+    var zeitLabels = {asap:'So schnell wie möglich','1-3':'1–3 Monate','3-6':'3–6 Monate',info:'Erstmal nur informieren'};
+
     var payload = {
+      // ── Anfrage-Daten (alle flach) ──
       interesse: interesseLabel,
-      adresse: {
-        strasse: state.street, hausnummer: state.houseNumber,
-        plz: state.plz, bestaetigt: state.addressConfirmed
-      },
-      verbrauch: {
-        monatlicher_abschlag_eur: state.monthlyBill,
-        monatliche_heizkosten_eur: (state.interest === 'wp' || state.interest === 'all') ? state.monthlyHeatingCost : null,
-        zukuenftige_lasten: state.futureLoads
-      },
-      haus: {
-        eigentuemer: state.isOwner === 'yes',
-        haustyp: state.houseType
-      },
-      heizung: (state.interest === 'wp' || state.interest === 'all')
-        ? { art: state.heatingType, alter: state.heatingAge, standort: state.heatingLocation }
-        : null,
-      umsetzung: state.timeframe,
-      kontakt: { name: state.name, email: state.email, telefon: state.phone },
-      ki_analyse: state.calcResult,
-      // Fertige E-Mail-Felder für Zapier
+      adresse_strasse: state.street,
+      adresse_hausnummer: state.houseNumber,
+      adresse_plz: state.plz,
+      adresse_bestaetigt: state.addressConfirmed,
+      monatlicher_abschlag_eur: state.monthlyBill,
+      monatliche_heizkosten_eur: needsHeating ? state.monthlyHeatingCost : null,
+      zukuenftige_lasten: loadLabels,
+      eigentuemer: state.isOwner === 'yes' ? 'Ja' : 'Nein',
+      haustyp: hausLabels[state.houseType] || state.houseType,
+      heizung_art: needsHeating ? state.heatingType : null,
+      heizung_alter: needsHeating ? state.heatingAge : null,
+      heizung_standort: needsHeating ? state.heatingLocation : null,
+      umsetzung: zeitLabels[state.timeframe] || state.timeframe,
+      kontakt_name: state.name,
+      kontakt_email: state.email,
+      kontakt_telefon: state.phone,
+      // ── E-Mail-Felder für Zapier ──
       email_an: state.email,
       email_betreff: 'Ihre Solar-Ersteinschätzung – ' + (isSaving ? fmtDE(saving) + ' € monatliche Ersparnis' : interesseLabel),
       email_html: emailHtml,
-      // Flache Ergebnis-Felder für einfachen Zugriff in Zapier
+      // ── Ergebnis-Felder (flach) ──
       ergebnis_monatliche_ersparnis: r ? saving : 0,
       ergebnis_anlagengroesse_kwp: r ? r.systemSizeKwp : 0,
       ergebnis_speicher_kwh: r ? r.storageSizeKwh : 0,
       ergebnis_jahresersparnis: r ? r.annualSavings : 0,
       ergebnis_20j_gewinn: r ? r.twentyYearSavings : 0,
       ergebnis_monatsrate: r ? r.monthlyRate : 0,
-      metadata: { source: 'anfragen-landingpage-funnel', timestamp: new Date().toISOString() }
+      // ── Meta ──
+      quelle: 'anfragen-landingpage-funnel',
+      zeitstempel: new Date().toISOString()
     };
 
     if (!WEBHOOK_URL) {
