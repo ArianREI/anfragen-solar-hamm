@@ -3093,8 +3093,61 @@ document.querySelectorAll('input[inputmode="numeric"]').forEach(function(input) 
     state.errors = {};
     render();
 
+    var r = state.calcResult;
+    var vorname = state.name.split(' ')[0];
+    var interesseLabel = state.interest === 'pv' ? 'Photovoltaik' : state.interest === 'wp' ? 'Wärmepumpe' : 'Komplettpaket';
+    var saving = r ? r.monthlySaving : 0;
+    var isSaving = saving >= 0;
+
+    // Fertige HTML-E-Mail für Zapier
+    var emailHtml = '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="margin:0;padding:0;background:#f4f4f4;font-family:Arial,Helvetica,sans-serif;">'
+      + '<div style="max-width:600px;margin:0 auto;background:#ffffff;">'
+      // Header
+      + '<div style="background:#06352F;padding:32px 24px;text-align:center;">'
+      + '<h1 style="color:#50AF47;font-size:22px;margin:0;">SOLAR HAMM</h1>'
+      + '<p style="color:#B8DDB8;font-size:13px;margin:8px 0 0;">Ihr Partner für Photovoltaik, Wärmepumpen und Wallboxen</p>'
+      + '</div>'
+      // Begrüßung
+      + '<div style="padding:32px 24px;">'
+      + '<h2 style="color:#06352F;font-size:20px;margin:0 0 16px;">Hallo ' + esc(vorname) + ',</h2>'
+      + '<p style="color:#333;font-size:15px;line-height:1.6;margin:0 0 16px;">vielen Dank für Ihre Anfrage zum Thema <strong>' + interesseLabel + '</strong>! Wir haben Ihre Daten erhalten und freuen uns über Ihr Interesse.</p>'
+      + '<p style="color:#333;font-size:15px;line-height:1.6;margin:0 0 24px;">Hier ist Ihre persönliche Ersteinschätzung auf Basis der Angaben, die Sie im Konfigurator gemacht haben:</p>'
+      // Ergebnis-Box
+      + '<div style="background:#06352F;border-radius:12px;padding:24px;margin:0 0 24px;">'
+      + '<p style="color:#9EBCAC;font-size:12px;text-transform:uppercase;letter-spacing:2px;margin:0 0 8px;">Ihr persönliches Ergebnis</p>'
+      + (isSaving
+        ? '<p style="color:#B8DDB8;font-size:14px;margin:0 0 4px;">Sie sparen pro Monat</p><p style="color:#50AF47;font-size:36px;font-weight:bold;margin:0 0 12px;">' + fmtDE(saving) + ' €</p>'
+        : '<p style="color:#B8DDB8;font-size:14px;margin:0 0 4px;">Ihre neue monatliche Rate</p><p style="color:#50AF47;font-size:36px;font-weight:bold;margin:0 0 12px;">' + (r ? r.newTotalMonthly : '–') + ' €</p>')
+      + '<table style="width:100%;border-collapse:collapse;">'
+      + '<tr><td style="color:#9EBCAC;font-size:13px;padding:6px 0;border-top:1px solid rgba(255,255,255,0.1);">Anlagengröße</td><td style="color:#fff;font-size:13px;padding:6px 0;text-align:right;border-top:1px solid rgba(255,255,255,0.1);"><strong>' + (r ? r.systemSizeKwp : '–') + ' kWp</strong></td></tr>'
+      + '<tr><td style="color:#9EBCAC;font-size:13px;padding:6px 0;">Speicher</td><td style="color:#fff;font-size:13px;padding:6px 0;text-align:right;"><strong>' + (r ? r.storageSizeKwh : '–') + ' kWh</strong></td></tr>'
+      + '<tr><td style="color:#9EBCAC;font-size:13px;padding:6px 0;">Ersparnis pro Jahr</td><td style="color:#50AF47;font-size:13px;padding:6px 0;text-align:right;"><strong>' + (r ? fmtDE(r.annualSavings) : '–') + ' €</strong></td></tr>'
+      + '<tr><td style="color:#9EBCAC;font-size:13px;padding:6px 0;">Gewinn in 20 Jahren</td><td style="color:#50AF47;font-size:13px;padding:6px 0;text-align:right;"><strong>ca. ' + (r ? fmtDE(r.twentyYearSavings) : '–') + ' €</strong></td></tr>'
+      + '<tr><td style="color:#9EBCAC;font-size:13px;padding:6px 0;">Finanzierungsrate</td><td style="color:#fff;font-size:13px;padding:6px 0;text-align:right;"><strong>' + (r ? r.monthlyRate : '–') + ' € / Monat</strong></td></tr>'
+      + '</table>'
+      + '</div>'
+      + '<p style="color:#666;font-size:12px;font-style:italic;margin:0 0 24px;">Dies ist eine unverbindliche Ersteinschätzung. Das finale Angebot erstellen wir nach dem persönlichen Beratungsgespräch inkl. aller verfügbaren Förderungen.</p>'
+      // Nächste Schritte
+      + '<div style="background:#f0f7f0;border-radius:12px;padding:24px;margin:0 0 24px;">'
+      + '<h3 style="color:#06352F;font-size:16px;margin:0 0 12px;">So geht es weiter</h3>'
+      + '<p style="color:#333;font-size:14px;line-height:1.6;margin:0;">Unser Team wird sich <strong>innerhalb der nächsten 3 Werktage</strong> persönlich bei Ihnen melden, um Ihre Anfrage zu besprechen und offene Fragen zu klären. Wir freuen uns auf das Gespräch!</p>'
+      + '</div>'
+      // Kontakt
+      + '<div style="border-top:1px solid #eee;padding-top:24px;">'
+      + '<p style="color:#333;font-size:14px;line-height:1.6;margin:0 0 8px;">Sie möchten nicht warten? Rufen Sie uns gerne direkt an:</p>'
+      + '<p style="margin:0 0 4px;"><a href="tel:+4923857783006" style="color:#50AF47;font-size:16px;font-weight:bold;text-decoration:none;">+49 2385 7783006</a></p>'
+      + '<p style="color:#666;font-size:13px;margin:0;">info@solar-hamm.de · www.solar-hamm.de</p>'
+      + '</div>'
+      + '</div>'
+      // Footer
+      + '<div style="background:#06352F;padding:20px 24px;text-align:center;">'
+      + '<p style="color:#9EBCAC;font-size:11px;margin:0;">Solar Hamm GmbH · Gabelsbergerstraße 8 · 59069 Hamm</p>'
+      + '<p style="color:#598C71;font-size:10px;margin:8px 0 0;">Diese E-Mail wurde automatisch versendet, da Sie eine Anfrage über unseren Online-Konfigurator gestellt haben.</p>'
+      + '</div>'
+      + '</div></body></html>';
+
     var payload = {
-      interesse: state.interest,
+      interesse: interesseLabel,
       adresse: {
         strasse: state.street, hausnummer: state.houseNumber,
         plz: state.plz, bestaetigt: state.addressConfirmed
@@ -3114,6 +3167,17 @@ document.querySelectorAll('input[inputmode="numeric"]').forEach(function(input) 
       umsetzung: state.timeframe,
       kontakt: { name: state.name, email: state.email, telefon: state.phone },
       ki_analyse: state.calcResult,
+      // Fertige E-Mail-Felder für Zapier
+      email_an: state.email,
+      email_betreff: 'Ihre Solar-Ersteinschätzung – ' + (isSaving ? fmtDE(saving) + ' € monatliche Ersparnis' : interesseLabel),
+      email_html: emailHtml,
+      // Flache Ergebnis-Felder für einfachen Zugriff in Zapier
+      ergebnis_monatliche_ersparnis: r ? saving : 0,
+      ergebnis_anlagengroesse_kwp: r ? r.systemSizeKwp : 0,
+      ergebnis_speicher_kwh: r ? r.storageSizeKwh : 0,
+      ergebnis_jahresersparnis: r ? r.annualSavings : 0,
+      ergebnis_20j_gewinn: r ? r.twentyYearSavings : 0,
+      ergebnis_monatsrate: r ? r.monthlyRate : 0,
       metadata: { source: 'anfragen-landingpage-funnel', timestamp: new Date().toISOString() }
     };
 
