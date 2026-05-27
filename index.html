@@ -2487,28 +2487,35 @@ document.querySelectorAll('input[inputmode="numeric"]').forEach(function(input) 
     var total = getTotal();
     var pct = ((state.stepIdx + 1) / total * 100).toFixed(1);
 
+    var innerHtml;
     if (state.success) {
-      container.innerHTML = renderModal(renderSuccessContent());
-      return;
+      innerHtml = renderSuccessContent();
+    } else {
+      var html = '';
+      // Header
+      html += renderHeader(key, total, pct);
+      // AI Help
+      html += renderAIHelp(key);
+      // Step content
+      html += '<div class="funnel-step-content">' + renderStep(key) + '</div>';
+      // Submit error
+      if (state.errors.submit) {
+        html += '<div class="funnel-error-box">' + esc(state.errors.submit) + '</div>';
+      }
+      // Navigation
+      html += renderNav(key);
+      // Legal
+      html += '<p class="funnel-legal">DSGVO-konform · Keine Weitergabe an Dritte · Jederzeit widerrufbar</p>';
+      innerHtml = html;
     }
 
-    var html = '';
-    // Header
-    html += renderHeader(key, total, pct);
-    // AI Help
-    html += renderAIHelp(key);
-    // Step content
-    html += '<div class="funnel-step-content">' + renderStep(key) + '</div>';
-    // Submit error
-    if (state.errors.submit) {
-      html += '<div class="funnel-error-box">' + esc(state.errors.submit) + '</div>';
+    // Keep overlay persistent – only update inner content to prevent flash
+    var existingInner = container.querySelector('.funnel-card-inner');
+    if (existingInner) {
+      existingInner.innerHTML = innerHtml;
+    } else {
+      container.innerHTML = renderModal(innerHtml);
     }
-    // Navigation
-    html += renderNav(key);
-    // Legal
-    html += '<p class="funnel-legal">DSGVO-konform · Keine Weitergabe an Dritte · Jederzeit widerrufbar</p>';
-
-    container.innerHTML = renderModal(html);
 
     // Focus inputs
     setTimeout(function() {
@@ -2562,9 +2569,12 @@ document.querySelectorAll('input[inputmode="numeric"]').forEach(function(input) 
     '</div>';
   }
 
+  // Steps that auto-advance on selection – no "Weiter" button needed
+  var AUTO_ADVANCE_STEPS = ['interest','confirm','owner','houseType','heatingType','heatingAge','heatingLocation','timeframe'];
+
   function renderNav(key) {
     var isLast = state.stepIdx === getTotal() - 1;
-    var isAnalysisPending = key === 'analysis' && !state.analysisDone;
+    var isAutoAdvance = AUTO_ADVANCE_STEPS.indexOf(key) >= 0;
     var html = '<div class="funnel-nav">';
     if (state.stepIdx > 0 && key !== 'analysis') {
       html += '<button type="button" class="funnel-back-btn" onclick="window._funnelBack()"' + (state.submitting ? ' disabled' : '') + '>← Zurück</button>';
@@ -2573,11 +2583,11 @@ document.querySelectorAll('input[inputmode="numeric"]').forEach(function(input) 
       if (state.analysisDone) {
         html += '<button type="button" class="funnel-next-btn" onclick="window._funnelNext()">Weiter →</button>';
       }
-    } else if (!isLast) {
-      html += '<button type="button" class="funnel-next-btn" onclick="window._funnelNext()">Weiter →</button>';
-    } else {
+    } else if (isLast) {
       html += '<button type="button" class="funnel-next-btn" onclick="window._funnelSubmit()"' + (state.submitting ? ' disabled' : '') + '>' +
         (state.submitting ? 'Wird gesendet …' : 'Kostenloses Angebot anfordern →') + '</button>';
+    } else if (!isAutoAdvance) {
+      html += '<button type="button" class="funnel-next-btn" onclick="window._funnelNext()">Weiter →</button>';
     }
     html += '</div>';
     return html;
@@ -2893,7 +2903,7 @@ document.querySelectorAll('input[inputmode="numeric"]').forEach(function(input) 
     for (var i = 0; i < TIMEFRAMES.length; i++) {
       var t = TIMEFRAMES[i];
       var active = state.timeframe === t.id ? ' active' : '';
-      html += '<button type="button" class="funnel-choice-btn' + active + '" onclick="window._funnelUpdate(\'timeframe\',\'' + t.id + '\');window._funnelRender();">' +
+      html += '<button type="button" class="funnel-choice-btn' + active + '" onclick="window._funnelSelectTimeframe(\'' + t.id + '\')">' +
         '<span style="font-size:24px;">' + t.icon + '</span>' +
         '<span style="font-weight:600;color:var(--white);">' + esc(t.label) + '</span>' +
       '</button>';
@@ -3228,6 +3238,16 @@ document.querySelectorAll('input[inputmode="numeric"]').forEach(function(input) 
   };
   window._funnelSelectHeatingLocation = function(id) {
     state.heatingLocation = id;
+    state.errors = {};
+    render();
+    setTimeout(function() {
+      state.stepIdx = Math.min(getTotal() - 1, state.stepIdx + 1);
+      state.helpOpen = false;
+      render();
+    }, 280);
+  };
+  window._funnelSelectTimeframe = function(id) {
+    state.timeframe = id;
     state.errors = {};
     render();
     setTimeout(function() {
