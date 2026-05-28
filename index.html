@@ -1277,6 +1277,30 @@ textarea.form-input { resize: none; }
   grid-template-columns: 1fr 110px;
   gap: 12px;
 }
+.funnel-street-wrap { position: relative; }
+.funnel-street-suggestions {
+  position: absolute; left: 0; right: 0; top: 100%;
+  z-index: 100; margin-top: 4px;
+  background: #0a2a26; border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 10px; overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  max-height: 220px; overflow-y: auto;
+}
+.funnel-street-suggestions button {
+  display: block; width: 100%; text-align: left;
+  padding: 12px 16px; border: none; background: transparent;
+  color: #fff; font-size: 14px; cursor: pointer;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  transition: background 0.15s;
+}
+.funnel-street-suggestions button:last-child { border-bottom: none; }
+.funnel-street-suggestions button:hover,
+.funnel-street-suggestions button:focus {
+  background: rgba(80,175,71,0.15);
+}
+.funnel-street-suggestions button .street-plz {
+  display: block; font-size: 11px; color: #9EBCAC; margin-top: 2px;
+}
 
 /* Maps confirm */
 .funnel-map-wrap {
@@ -2440,7 +2464,8 @@ document.querySelectorAll('input[inputmode="numeric"]').forEach(function(input) 
     errors: {}, submitting: false, success: false,
     helpOpen: false, modalOpen: false,
     analysisProgress: 0, analysisPhaseIdx: 0, analysisDone: false,
-    calcResult: null
+    calcResult: null,
+    _streetSuggestions: [], _streetInputFocused: false, _streetDebounce: null
   };
 
   function getStepKeys() {
@@ -2652,10 +2677,20 @@ document.querySelectorAll('input[inputmode="numeric"]').forEach(function(input) 
   }
 
   function renderStepAddress() {
+    var sugHtml = '';
+    if (state._streetSuggestions && state._streetSuggestions.length > 0 && state._streetInputFocused) {
+      sugHtml = '<div class="funnel-street-suggestions">';
+      for (var i = 0; i < state._streetSuggestions.length; i++) {
+        var s = state._streetSuggestions[i];
+        sugHtml += '<button type="button" onmousedown="window._funnelPickStreet(' + i + ')">' + esc(s.street) + '<span class="street-plz">' + esc(s.display) + '</span></button>';
+      }
+      sugHtml += '</div>';
+    }
     return stepIntro('Wie lautet Ihre Adresse?', 'Mit Adresse können wir per Satellit Ihr Dach analysieren und die optimale Anlagengröße ermitteln.') +
       '<div class="funnel-address-grid">' +
-        '<div>' + fieldLabel('Straße', true) +
-          '<input type="text" placeholder="Musterstraße" value="' + esc(state.street) + '" class="form-input" autocomplete="address-line1" oninput="window._funnelUpdate(\'street\',this.value)" onkeydown="if(event.key===\'Enter\')window._funnelNext()">' +
+        '<div class="funnel-street-wrap">' + fieldLabel('Straße', true) +
+          '<input type="text" placeholder="Musterstraße" value="' + esc(state.street) + '" class="form-input" autocomplete="off" oninput="window._funnelStreetInput(this.value)" onfocus="window._funnelStreetFocus(true)" onblur="window._funnelStreetFocus(false)" onkeydown="if(event.key===\'Enter\')window._funnelNext()">' +
+          sugHtml +
           fieldError('street') + '</div>' +
         '<div>' + fieldLabel('Hausnr.', true) +
           '<input type="text" placeholder="12" value="' + esc(state.houseNumber) + '" class="form-input" oninput="window._funnelUpdate(\'houseNumber\',this.value)" onkeydown="if(event.key===\'Enter\')window._funnelNext()">' +
@@ -3223,6 +3258,58 @@ document.querySelectorAll('input[inputmode="numeric"]').forEach(function(input) 
   window._funnelToggleHelp = function() { state.helpOpen = !state.helpOpen; render(); };
   window._funnelUpdatePlz = function(v) { state.plz = v.replace(/\D/g, '').slice(0, 5); };
   window._funnelUpdate = function(key, val) { state[key] = val; state.errors[key] = ''; };
+
+  // ─── Street Autocomplete (Nominatim / OpenStreetMap) ───
+  window._funnelStreetInput = function(val) {
+    state.street = val;
+    state.errors.street = '';
+    clearTimeout(state._streetDebounce);
+    if (val.length < 2) { state._streetSuggestions = []; render(); return; }
+    state._streetDebounce = setTimeout(function() {
+      var q = val + ', ' + state.plz;
+      fetch('https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=5&countrycodes=de&q=' + encodeURIComponent(q))
+        .then(function(r) { return r.json(); })
+        .then(function(results) {
+          var seen = {};
+          state._streetSuggestions = [];
+          for (var i = 0; i < results.length; i++) {
+            var a = results[i].address;
+            var road = a.road || a.pedestrian || a.footway || '';
+            if (!road || seen[road]) continue;
+            seen[road] = true;
+            state._streetSuggestions.push({
+              street: road,
+              display: (a.postcode || '') + ' ' + (a.city || a.town || a.village || '')
+            });
+          }
+          render();
+          // Re-focus the street input after render
+          var inp = document.querySelector('.funnel-street-wrap input');
+          if (inp) { inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); }
+        })
+        .catch(function() {});
+    }, 300);
+  };
+  window._funnelStreetFocus = function(focused) {
+    state._streetInputFocused = focused;
+    if (!focused) setTimeout(function() { render(); }, 200);
+    else render();
+  };
+  window._funnelPickStreet = function(idx) {
+    var s = state._streetSuggestions[idx];
+    if (s) {
+      state.street = s.street;
+      state._streetSuggestions = [];
+      state._streetInputFocused = false;
+      state.errors.street = '';
+      render();
+      // Focus auf Hausnummer
+      setTimeout(function() {
+        var hn = document.querySelectorAll('.funnel-address-grid input');
+        if (hn[1]) hn[1].focus();
+      }, 100);
+    }
+  };
   window._funnelUpdateBill = function(v) {
     state.monthlyBill = parseInt(v, 10);
     render();
