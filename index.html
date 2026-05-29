@@ -1946,6 +1946,86 @@ textarea.form-input { resize: none; }
   font-weight: 600;
 }
 .funnel-success-phone a:hover { text-decoration: underline; }
+
+/* ─── Cookie Consent Banner ──────────────────────────────── */
+.cookie-banner {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 999999;
+  background: #0a2a26; border-top: 1px solid rgba(80,175,71,0.25);
+  padding: 20px 24px; box-shadow: 0 -8px 40px rgba(0,0,0,0.5);
+  transform: translateY(100%); transition: transform 0.4s ease;
+}
+.cookie-banner.visible { transform: translateY(0); }
+.cookie-banner-inner {
+  max-width: 960px; margin: 0 auto;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 16px;
+}
+.cookie-banner-text {
+  flex: 1 1 400px; color: #B8DDB8; font-size: 13px; line-height: 1.6;
+}
+.cookie-banner-text a {
+  color: #50AF47; text-decoration: underline;
+}
+.cookie-banner-text strong { color: #fff; }
+.cookie-banner-btns {
+  flex: 0 0 auto; display: flex; gap: 10px; flex-wrap: wrap;
+}
+.cookie-btn {
+  border: none; border-radius: 8px; padding: 10px 20px;
+  font-size: 13px; font-weight: 600; cursor: pointer;
+  transition: all 0.2s;
+}
+.cookie-btn-accept {
+  background: #50AF47; color: #fff;
+  box-shadow: 0 2px 12px rgba(80,175,71,0.35);
+}
+.cookie-btn-accept:hover { background: #27D448; }
+.cookie-btn-decline {
+  background: rgba(255,255,255,0.08); color: #B8DDB8;
+  border: 1px solid rgba(255,255,255,0.12);
+}
+.cookie-btn-decline:hover { background: rgba(255,255,255,0.12); }
+.cookie-btn-settings {
+  background: transparent; color: #9EBCAC;
+  border: 1px solid rgba(255,255,255,0.08);
+}
+.cookie-btn-settings:hover { color: #fff; border-color: rgba(255,255,255,0.2); }
+
+/* Cookie Settings Panel */
+.cookie-settings-panel {
+  display: none; margin-top: 16px; width: 100%;
+  background: rgba(0,0,0,0.2); border-radius: 10px; padding: 20px;
+}
+.cookie-settings-panel.open { display: block; }
+.cookie-toggle-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.cookie-toggle-row:last-child { border-bottom: none; }
+.cookie-toggle-info { flex: 1; }
+.cookie-toggle-label { color: #fff; font-size: 14px; font-weight: 600; }
+.cookie-toggle-desc { color: #9EBCAC; font-size: 12px; margin-top: 2px; }
+.cookie-toggle {
+  position: relative; width: 44px; height: 24px; flex-shrink: 0; margin-left: 16px;
+}
+.cookie-toggle input { opacity: 0; width: 0; height: 0; }
+.cookie-toggle-slider {
+  position: absolute; inset: 0; border-radius: 12px; cursor: pointer;
+  background: rgba(255,255,255,0.15); transition: background 0.2s;
+}
+.cookie-toggle-slider::before {
+  content: ''; position: absolute; left: 3px; top: 3px;
+  width: 18px; height: 18px; border-radius: 50%;
+  background: #fff; transition: transform 0.2s;
+}
+.cookie-toggle input:checked + .cookie-toggle-slider { background: #50AF47; }
+.cookie-toggle input:checked + .cookie-toggle-slider::before { transform: translateX(20px); }
+.cookie-toggle input:disabled + .cookie-toggle-slider { opacity: 0.5; cursor: not-allowed; }
+
+@media (max-width: 600px) {
+  .cookie-banner { padding: 16px; }
+  .cookie-banner-btns { width: 100%; }
+  .cookie-btn { flex: 1; text-align: center; }
+}
 </style>
 </head>
 <body>
@@ -3467,6 +3547,118 @@ document.querySelectorAll('input[inputmode="numeric"]').forEach(function(input) 
     });
   });
 
+})();
+</script>
+
+<!-- ═══ Cookie Consent Banner ═══ -->
+<div id="cookie-banner" class="cookie-banner" role="dialog" aria-label="Cookie-Einstellungen">
+  <div class="cookie-banner-inner">
+    <div class="cookie-banner-text">
+      <strong>Wir respektieren Ihre Privatsphäre.</strong><br>
+      Wir nutzen Cookies, um unsere Website zu verbessern und Ihnen relevante Inhalte anzuzeigen.
+      Technisch notwendige Cookies sind immer aktiv. Marketing-Cookies (z.&nbsp;B. Facebook Pixel)
+      werden nur mit Ihrer Zustimmung geladen.
+      <a href="https://www.solar-hamm.de/datenschutz" target="_blank" rel="noopener">Datenschutzerklärung</a>
+    </div>
+    <div class="cookie-banner-btns">
+      <button class="cookie-btn cookie-btn-accept" onclick="window._cookieConsent('all')">Alle akzeptieren</button>
+      <button class="cookie-btn cookie-btn-decline" onclick="window._cookieConsent('essential')">Nur notwendige</button>
+      <button class="cookie-btn cookie-btn-settings" onclick="window._cookieToggleSettings()">Einstellungen</button>
+    </div>
+    <div id="cookie-settings" class="cookie-settings-panel">
+      <div class="cookie-toggle-row">
+        <div class="cookie-toggle-info">
+          <div class="cookie-toggle-label">Technisch notwendig</div>
+          <div class="cookie-toggle-desc">Grundfunktionen der Website. Können nicht deaktiviert werden.</div>
+        </div>
+        <label class="cookie-toggle">
+          <input type="checkbox" checked disabled>
+          <span class="cookie-toggle-slider"></span>
+        </label>
+      </div>
+      <div class="cookie-toggle-row">
+        <div class="cookie-toggle-info">
+          <div class="cookie-toggle-label">Marketing & Analyse</div>
+          <div class="cookie-toggle-desc">Facebook Pixel zur Messung der Werbe-Performance und Optimierung unserer Anzeigen.</div>
+        </div>
+        <label class="cookie-toggle">
+          <input type="checkbox" id="cookie-marketing">
+          <span class="cookie-toggle-slider"></span>
+        </label>
+      </div>
+      <div style="margin-top:16px;text-align:right;">
+        <button class="cookie-btn cookie-btn-accept" onclick="window._cookieConsent('custom')">Auswahl speichern</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  // ─── Facebook Pixel ID (hier eintragen wenn vorhanden) ───
+  var FB_PIXEL_ID = ''; // z.B. '123456789012345'
+
+  // ─── Cookie Consent Logic ───
+  function getCookie(name) {
+    var match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+    return match ? match[2] : null;
+  }
+
+  function setCookie(name, value, days) {
+    var d = new Date();
+    d.setTime(d.getTime() + days * 86400000);
+    document.cookie = name + '=' + value + ';expires=' + d.toUTCString() + ';path=/;SameSite=Lax';
+  }
+
+  function showBanner() {
+    setTimeout(function() {
+      document.getElementById('cookie-banner').classList.add('visible');
+    }, 800);
+  }
+
+  function hideBanner() {
+    document.getElementById('cookie-banner').classList.remove('visible');
+  }
+
+  function loadFacebookPixel() {
+    if (!FB_PIXEL_ID) return;
+    // Nur laden wenn noch nicht geladen
+    if (window.fbq) return;
+    !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+    n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;
+    n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;
+    t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}
+    (window,document,'script','https://connect.facebook.net/en_US/fbevents.js');
+    fbq('init', FB_PIXEL_ID);
+    fbq('track', 'PageView');
+  }
+
+  window._cookieConsent = function(choice) {
+    if (choice === 'all') {
+      setCookie('sh_consent', 'all', 365);
+      loadFacebookPixel();
+    } else if (choice === 'essential') {
+      setCookie('sh_consent', 'essential', 365);
+    } else if (choice === 'custom') {
+      var marketing = document.getElementById('cookie-marketing').checked;
+      setCookie('sh_consent', marketing ? 'all' : 'essential', 365);
+      if (marketing) loadFacebookPixel();
+    }
+    hideBanner();
+  };
+
+  window._cookieToggleSettings = function() {
+    var panel = document.getElementById('cookie-settings');
+    panel.classList.toggle('open');
+  };
+
+  // ─── Init: Prüfe ob bereits Consent gegeben ───
+  var consent = getCookie('sh_consent');
+  if (!consent) {
+    showBanner();
+  } else if (consent === 'all') {
+    loadFacebookPixel();
+  }
 })();
 </script>
 </body>
