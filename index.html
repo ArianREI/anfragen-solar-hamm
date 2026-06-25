@@ -2756,20 +2756,33 @@ document.querySelectorAll('input[inputmode="numeric"]').forEach(function(input) 
     return html;
   }
 
-  function renderStepAddress() {
-    var sugHtml = '';
-    if (state._streetSuggestions && state._streetSuggestions.length > 0 && state._streetInputFocused) {
-      sugHtml = '<div class="funnel-street-suggestions">';
-      for (var i = 0; i < state._streetSuggestions.length; i++) {
-        var s = state._streetSuggestions[i];
-        sugHtml += '<button type="button" onmousedown="window._funnelPickStreet(' + i + ')">' + esc(s.street) + '<span class="street-plz">' + esc(s.display) + '</span></button>';
-      }
-      sugHtml += '</div>';
+  function streetSuggestionsInner() {
+    if (!(state._streetSuggestions && state._streetSuggestions.length > 0 && state._streetInputFocused)) return '';
+    var h = '';
+    for (var i = 0; i < state._streetSuggestions.length; i++) {
+      var s = state._streetSuggestions[i];
+      h += '<button type="button" onmousedown="window._funnelPickStreet(' + i + ')">' + esc(s.street) + '<span class="street-plz">' + esc(s.display) + '</span></button>';
     }
+    return h;
+  }
+
+  // Aktualisiert NUR das Vorschlags-Dropdown, ohne das Input-Feld neu zu erzeugen
+  // (sonst würde der Fokus/Cursor beim Tippen verloren gehen).
+  function updateStreetSuggestionsDOM() {
+    var box = document.getElementById('funnelStreetSug');
+    if (!box) return;
+    var inner = streetSuggestionsInner();
+    box.innerHTML = inner;
+    box.style.display = inner ? '' : 'none';
+  }
+
+  function renderStepAddress() {
+    var inner = streetSuggestionsInner();
+    var sugHtml = '<div class="funnel-street-suggestions" id="funnelStreetSug"' + (inner ? '' : ' style="display:none"') + '>' + inner + '</div>';
     return stepIntro('Wie lautet Ihre Adresse?', 'Mit Adresse können wir per Satellit Ihr Dach analysieren und die optimale Anlagengröße ermitteln.') +
       '<div class="funnel-address-grid">' +
         '<div class="funnel-street-wrap">' + fieldLabel('Straße', true) +
-          '<input type="text" placeholder="Musterstraße" value="' + esc(state.street) + '" class="form-input" autocomplete="off" oninput="window._funnelStreetInput(this.value)" onfocus="window._funnelStreetFocus(true)" onblur="window._funnelStreetFocus(false)" onkeydown="if(event.key===\'Enter\')window._funnelNext()">' +
+          '<input id="funnelStreetInput" type="text" placeholder="Musterstraße" value="' + esc(state.street) + '" class="form-input" autocomplete="off" oninput="window._funnelStreetInput(this.value)" onfocus="window._funnelStreetFocus(true)" onblur="window._funnelStreetFocus(false)" onkeydown="if(event.key===\'Enter\')window._funnelNext()">' +
           sugHtml +
           fieldError('street') + '</div>' +
         '<div>' + fieldLabel('Hausnr.', true) +
@@ -3304,6 +3317,25 @@ document.querySelectorAll('input[inputmode="numeric"]').forEach(function(input) 
       zeitstempel: new Date().toISOString()
     };
 
+    // Zusaetzlich an die Solar-Hamm-Website senden, damit die Anfrage in der
+    // CRM landet (AgentOS-Dashboard + KI-Agenten triagieren sie automatisch).
+    // Best-effort, blockiert das Formular nicht. Ohne eigene Header = einfacher
+    // Request (kein CORS-Preflight). Die schweren E-Mail-Felder werden entfernt;
+    // da kein Feld "email" gesetzt ist, verschickt die Website KEINE zweite
+    // Bestaetigungsmail (die ausfuehrliche Ersteinschaetzung kommt weiter ueber Zapier).
+    try {
+      var crmPayload = {};
+      for (var _k in payload) {
+        if (payload.hasOwnProperty(_k) && _k !== 'email_html' && _k !== 'email_betreff' && _k !== 'email_an') {
+          crmPayload[_k] = payload[_k];
+        }
+      }
+      fetch('https://solar-hamm.de/api/lead', {
+        method: 'POST',
+        body: JSON.stringify(crmPayload)
+      }).catch(function(err) { try { console.warn('CRM-Weiterleitung fehlgeschlagen (Anfrage trotzdem versendet):', err); } catch (_) {} });
+    } catch (_e) {}
+
     if (!WEBHOOK_URL) {
       setTimeout(function() {
         state.submitting = false;
@@ -3344,7 +3376,9 @@ document.querySelectorAll('input[inputmode="numeric"]').forEach(function(input) 
     state.street = val;
     state.errors.street = '';
     clearTimeout(state._streetDebounce);
-    if (val.length < 2) { state._streetSuggestions = []; render(); return; }
+    // Nur das Dropdown aktualisieren – NICHT render() (würde das Input-Feld
+    // neu erzeugen und den Fokus/Cursor beim Tippen verlieren).
+    if (val.length < 2) { state._streetSuggestions = []; updateStreetSuggestionsDOM(); return; }
     state._streetDebounce = setTimeout(function() {
       var q = val + ', ' + state.plz;
       fetch('https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=5&countrycodes=de&q=' + encodeURIComponent(q))
@@ -3362,18 +3396,16 @@ document.querySelectorAll('input[inputmode="numeric"]').forEach(function(input) 
               display: (a.postcode || '') + ' ' + (a.city || a.town || a.village || '')
             });
           }
-          render();
-          // Re-focus the street input after render
-          var inp = document.querySelector('.funnel-street-wrap input');
-          if (inp) { inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); }
+          updateStreetSuggestionsDOM();
         })
         .catch(function() {});
     }, 300);
   };
   window._funnelStreetFocus = function(focused) {
     state._streetInputFocused = focused;
-    if (!focused) setTimeout(function() { render(); }, 200);
-    else render();
+    // Nur Dropdown ein-/ausblenden – Input-Feld bleibt bestehen, Fokus erhalten.
+    if (!focused) setTimeout(function() { updateStreetSuggestionsDOM(); }, 200);
+    else updateStreetSuggestionsDOM();
   };
   window._funnelPickStreet = function(idx) {
     var s = state._streetSuggestions[idx];
@@ -3382,12 +3414,13 @@ document.querySelectorAll('input[inputmode="numeric"]').forEach(function(input) 
       state._streetSuggestions = [];
       state._streetInputFocused = false;
       state.errors.street = '';
-      render();
-      // Focus auf Hausnummer
-      setTimeout(function() {
-        var hn = document.querySelectorAll('.funnel-address-grid input');
-        if (hn[1]) hn[1].focus();
-      }, 100);
+      // Straßenwert direkt ins bestehende Feld schreiben + Dropdown leeren,
+      // dann Fokus auf die Hausnummer setzen.
+      var si = document.getElementById('funnelStreetInput');
+      if (si) si.value = s.street;
+      updateStreetSuggestionsDOM();
+      var hn = document.querySelectorAll('.funnel-address-grid input');
+      if (hn[1]) hn[1].focus();
     }
   };
   window._funnelUpdateBill = function(v) {
