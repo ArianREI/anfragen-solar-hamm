@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Kostenloses Angebot anfordern | Solar Hamm</title>
+<!-- Kopie des Anfrage-Funnels fuer ChatGPT-Ads: nicht indexieren (kein Duplicate Content zur Hauptversion) -->
+<meta name="robots" content="noindex, follow">
+<link rel="canonical" href="https://anfrage.solar-hamm.de/">
 <meta name="description" content="Fordern Sie Ihr kostenloses und unverbindliches Angebot für Photovoltaik, Wärmepumpe oder Wallbox an. Solar Hamm – Ihr SHK- & Elektro-Meisterbetrieb aus Hamm.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -3313,7 +3316,7 @@ document.querySelectorAll('input[inputmode="numeric"]').forEach(function(input) 
       ergebnis_20j_gewinn: r ? r.twentyYearSavings : 0,
       ergebnis_monatsrate: r ? r.monthlyRate : 0,
       // ── Meta ──
-      quelle: 'anfragen-landingpage-funnel',
+      quelle: 'chatgpt-ads-funnel',
       zeitstempel: new Date().toISOString()
     };
 
@@ -3706,7 +3709,7 @@ document.querySelectorAll('input[inputmode="numeric"]').forEach(function(input) 
   try {
     fetch('https://solar-hamm.de/api/track', {
       method: 'POST',
-      body: JSON.stringify({ path: '/anfrage-funnel' })
+      body: JSON.stringify({ path: '/chatgpt-ad' })
     }).catch(function () {});
   } catch (_e) {}
 })();
